@@ -7,6 +7,18 @@
 DHT dht(PIN_DHT, DHTTYPE);
 SoftwareSerial bluetooth(PIN_BLUETOOTH_TX, PIN_BLUETOOTH_RX);
 unsigned long ioTime = 0;
+// this function is taken from this website:
+//  https://jeelabs.org/2012/05/04/measuring-vcc-via-the-bandgap/
+int vccRead(byte us = 250)
+{
+  analogRead(6);
+  bitSet(ADMUX, 3);
+  delayMicroseconds(us);
+  bitSet(ADCSRA, ADSC);
+  while(bit_is_set(ADCSRA, ADSC));
+  word x = ADC;
+  return x ? (1100L*1023)/x : -1;
+}
 void setup()
 {
   Serial.begin(9600);
@@ -29,7 +41,7 @@ void loop()
   {
     const float humidity    = dht.readHumidity();
     const float temperature = dht.readTemperature();
-    const float voltage     = 0;
+    const float voltage     = vccRead()/1000.f;
     ///TODO: calculate voltage
     if (isnan(humidity)    || 
         isnan(temperature) || 
@@ -40,11 +52,11 @@ void loop()
     }
     Serial.println("Humidity= " + String(humidity   , 1) + "%");
     Serial.println("Temp    = " + String(temperature, 1) + "C");
-    Serial.println("Voltage = " + String(voltage    , 4) + "V");
+    Serial.println("Voltage = " + String(voltage    , 3) + "V");
     bluetooth.print(           "H="   +
       String(humidity   , 1) + "%,T=" +
       String(temperature, 1) + "C,V=" +
-      String(voltage    , 4) + "U");
+      String(voltage    , 3) + "U");
     delay(3000);
   }
   if (bluetooth.available())
