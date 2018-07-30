@@ -85,15 +85,17 @@ void setup()
   bluetooth.print("SJ,0012\n");
 //  bluetooth.print("SJ,0100\n"); //default
   delay(100);// wait for "AOK" response
-  /* Apparently this doesn't actually work because MASTER has to agree...
   // Enable Sniff Mode to put the radio to sleep every X milliseconds
-  bluetooth.println("SW,12C0");
+  //  NOTE: this only works when you account for this stupid fucking bluetooth
+  //  adapter not enabling it unless you have like 20 seconds of radio silence
+  //  for SOME FUCKING REASON (see comments at the top of code regarding "bullshit")
+  // sleep time =  625 μs x 0x<value>
+  bluetooth.println("SW,12C0");// 625*0x12C0 = 3,000,000μ = 3seconds (SUPPOSEDLY)
   delay(100);// wait for "AOK" response
-  */
   // Lower the transmission power to lowest level
   //  (uses less power, decreases transmission range)
-  bluetooth.print("SY,0010\n"); //default
-  //bluetooth.println("SY,FFF4");
+//  bluetooth.print("SY,0010\n"); //default (16 dBM)
+  bluetooth.print("SY,FFF4\n");// lowest possible value (-12 dBM)
   delay(100);// wait for "AOK" response
   // lower the baud of the modem as well as the serial interface
   //  this command also takes the modem out of command mode
@@ -175,6 +177,7 @@ void loop()
         //  -enter command mode on the bluetooth
         // set the bluetooth serial line to the modem's default baud
         Serial.println("Got Ack!");
+        delay(15000);
 //        bluetooth.begin(115200);
 //        if(!receivedFirstAck)
 //        {
@@ -191,7 +194,7 @@ void loop()
           //  (SNIFF MODE), by delaying things right here and not transferring any
           //  data for like 20 seconds once a connection has been established,
           //  verified with an acknowledgement packet from the server
-          delay(20000);// WHY?...
+//          delay(20000);// WHY?...
         }
 //        //  -put the bluetooth modem into sleep mode?
 //        //    command="Q,1", wait for a "AOK" response
@@ -210,9 +213,9 @@ void loop()
       Serial.print(nextBtChar);
     }
   }
-  if (Serial.available())
-  {
-    ioTime = currTime;
-    bluetooth.print((char)Serial.read());
-  }
+//  if (Serial.available())
+//  {
+//    ioTime = currTime;
+//    bluetooth.print((char)Serial.read());
+//  }
 }
