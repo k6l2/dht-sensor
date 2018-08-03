@@ -62,7 +62,7 @@ void setup()
   delay(100);// wait for "CMD" response
   // Adjust the Inquiry Scan Window to the lowest possible value
   //  (uses less power, delays discovery time)
-  //bluetooth.println("SI,0100"); //default
+//  bluetooth.println("SI,0100"); //default
   bluetooth.print("SI,0012\n");
   delay(100);// wait for "AOK" response
   // Adjust the Page Scan Window to the lowest possible value
@@ -93,7 +93,8 @@ void loop()
   const unsigned long currTime = millis();
   ///TODO: handle the edge case where currTime <= ioTime when
   /// the unsigned long loops after ~50 days or so
-  if (currTime - ioTime > 10000)
+  /// or maybe not?...
+  if (currTime - ioTime > 1000)
   {
     const float humidity    = dht.readHumidity();
     const float temperature = dht.readTemperature();
@@ -105,13 +106,14 @@ void loop()
       Serial.println("Corrupted data!");
       return;
     }
-//    Serial.println("Humidity= " + String(humidity   , 1) + "%");
-//    Serial.println("Temp    = " + String(temperature, 1) + "C");
-//    Serial.println("Voltage = " + String(voltage    , 3) + "V");
-    bluetooth.print(           "H="   +
-      String(humidity   , 1) + "%,T=" +
-      String(temperature, 1) + "C,V=" +
-      String(voltage    , 3) + "U");
+    const String data = "DHT{"+
+      String(SENSOR_ID)+
+      ","+String(humidity   , 1)+
+      ","+String(temperature, 1)+
+      ","+String(voltage    , 3)+
+      ","+ACK_STRING+"}";
+    Serial.println(data);
+    bluetooth.print(data);
     ioTime = currTime;
   }
   if (bluetooth.available())
@@ -143,9 +145,9 @@ void loop()
 //      Serial.print(nextBtChar);
 //    }
   }
-//  if (Serial.available())
-//  {
-//    ioTime = currTime;
-//    bluetooth.print((char)Serial.read());
-//  }
+  if (Serial.available())
+  {
+    ioTime = currTime;
+    bluetooth.print((char)Serial.read());
+  }
 }
