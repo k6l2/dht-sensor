@@ -1,3 +1,5 @@
+// JeeLib for low-power sleep function
+#include <JeeLib.h>
 #include <DHT.h>
 #include <SoftwareSerial.h>
 #define SENSOR_ID        0
@@ -11,6 +13,11 @@ unsigned int currStringIndexAck = 0;
 DHT dht(PIN_DHT, DHTTYPE);
 SoftwareSerial bluetooth(PIN_BLUETOOTH_TX, PIN_BLUETOOTH_RX);
 unsigned long ioTime = 0;
+// Setup the JeeLib watchdog function
+ISR(WDT_vect)
+{
+  Sleepy::watchdogEvent(); 
+}
 // this function is taken from this website:
 //  https://jeelabs.org/2012/05/04/measuring-vcc-via-the-bandgap/
 int vccRead(byte us = 250)
@@ -94,16 +101,29 @@ void loop()
   ///TODO: handle the edge case where currTime <= ioTime when
   /// the unsigned long loops after ~50 days or so
   /// or maybe not?...
-  if (currTime - ioTime > 1000)
+  // Need to wait a sufficient amount of time for an acknowledgement that
+  //  the previous data packet was sent successfully
+  if (currTime - ioTime > 8000)
   {
     const float humidity    = dht.readHumidity();
-    const float temperature = dht.readTemperature();
-    const float voltage     = vccRead()/1000.f;
-    if (isnan(humidity)    || 
-        isnan(temperature) || 
-        isnan(voltage))
+    if (isnan(humidity))
     {
-      Serial.println("Corrupted data!");
+      ioTime = currTime;
+      Serial.println("Corrupted humidity!");
+      return;
+    }
+    const float temperature = dht.readTemperature();
+    if (isnan(temperature))
+    {
+      ioTime = currTime;
+      Serial.println("Corrupted temperature!");
+      return;
+    }
+    const float voltage     = vccRead()/1000.f;
+    if (isnan(voltage))
+    {
+      ioTime = currTime;
+      Serial.println("Corrupted voltage!");
       return;
     }
     const String data = "DHT{"+
@@ -128,22 +148,25 @@ void loop()
         // At this point, we have read the entire ack string
         //  from the bluetooth connection, so we know that a
         //  complete data string was sent over the connection //
-        //  -enter command mode on the bluetooth
-        // set the bluetooth serial line to the modem's default baud
-        Serial.println("Got Ack!");
         // Okay so, after much debugging, I have figured out how to force this
         //  piece of shit bluetooth adapter to enter into a powersave mode
         //  (SNIFF MODE), by delaying things right here and not transferring any
         //  data for like 20 seconds once a connection has been established,
         //  verified with an acknowledgement packet from the server
-        delay(15000);
+        Serial.println("Got Ack!");
+        // wait for the debug print message to be displayed in the serial output
+        delay(500);
+        // JeeLib low-power sleep!
+        Sleepy::loseSomeTime(14000);
+        // wait some time for the device to fully wake up again
+        delay(500);
       }
     }
-//    else
-//    {
-//      ioTime = currTime;
-//      Serial.print(nextBtChar);
-//    }
+    else
+    {
+      ioTime = currTime;
+      Serial.print(nextBtChar);
+    }
   }
   if (Serial.available())
   {
