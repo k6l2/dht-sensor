@@ -6,13 +6,12 @@
 #define PIN_DHT          2
 #define PIN_BLUETOOTH_TX 4
 #define PIN_BLUETOOTH_RX 7
-#define ACK_STRING_LENGTH 3
 #define DHTTYPE DHT22
-const char ACK_STRING[ACK_STRING_LENGTH + 1] = "ACK";
 unsigned int currStringIndexAck = 0;
 DHT dht(PIN_DHT, DHTTYPE);
 SoftwareSerial bluetooth(PIN_BLUETOOTH_TX, PIN_BLUETOOTH_RX);
 unsigned long ioTime = 0;
+String strAck;
 // Setup the JeeLib watchdog function
 ISR(WDT_vect)
 {
@@ -103,7 +102,7 @@ void loop()
   /// or maybe not?...
   // Need to wait a sufficient amount of time for an acknowledgement that
   //  the previous data packet was sent successfully
-  if (currTime - ioTime > 8000)
+  if (currTime - ioTime > 15000)
   {
     const float humidity    = dht.readHumidity();
     if (isnan(humidity))
@@ -126,12 +125,14 @@ void loop()
       Serial.println("Corrupted voltage!");
       return;
     }
+    strAck = String(currTime, HEX);
     const String data = "DHT{"+
       String(SENSOR_ID)+
       ","+String(humidity   , 1)+
       ","+String(temperature, 1)+
       ","+String(voltage    , 3)+
-      ","+ACK_STRING+"}";
+      ","+strAck+"}";
+    Serial.print("("+String(currTime)+")");
     Serial.println(data);
     bluetooth.print(data);
     ioTime = currTime;
@@ -140,7 +141,7 @@ void loop()
   {
     const char nextBtChar = (char)bluetooth.read();
     const int compareToAckStr = serialStringCompare(
-      ACK_STRING, ACK_STRING_LENGTH, nextBtChar, &currStringIndexAck);
+      strAck.c_str(), strAck.length(), nextBtChar, &currStringIndexAck);
     if(compareToAckStr != 0)
     {
       if(compareToAckStr == 2)
@@ -157,7 +158,7 @@ void loop()
         // wait for the debug print message to be displayed in the serial output
         delay(500);
         // JeeLib low-power sleep!
-        Sleepy::loseSomeTime(14000);
+        Sleepy::loseSomeTime(15000);
         // wait some time for the device to fully wake up again
         delay(500);
       }
