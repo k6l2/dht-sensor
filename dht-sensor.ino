@@ -81,7 +81,9 @@ void setup()
   //  adapter not enabling it unless you have like 20 seconds of radio silence
   //  for SOME FUCKING REASON (see comments at the top of code regarding "bullshit")
   // sleep time =  625 μs x 0x<value>
-  bluetooth.println("SW,12C0");// 625*0x12C0 = 3,000,000μ = 3seconds (SUPPOSEDLY)
+//  bluetooth.println("SW,12C0");// 625*0x12C0 = 3,000,000μs = 3seconds (SUPPOSEDLY)
+  bluetooth.println("SW,1F40");// 625*0x1F40 = 5,000,000μs = 5seconds (SUPPOSEDLY)
+//  bluetooth.println("SW,3E80");// 625*0x3E80 = 10,000,000μs = 10seconds (SUPPOSEDLY)
   delay(100);// wait for "AOK" response
   // Lower the transmission power to lowest level
   //  (uses less power, decreases transmission range)
@@ -102,7 +104,7 @@ void loop()
   /// or maybe not?...
   // Need to wait a sufficient amount of time for an acknowledgement that
   //  the previous data packet was sent successfully
-  if (currTime - ioTime > 15000)
+  if (currTime - ioTime > 30000)
   {
     const float humidity    = dht.readHumidity();
     if (isnan(humidity))
@@ -125,14 +127,19 @@ void loop()
       Serial.println("Corrupted voltage!");
       return;
     }
-    strAck = String(currTime, HEX);
+    // limit the size of the ack to 20 bits, or 5 base16 ascii digits
+    //  or 4 base36 ascii digits!
+    //  which will cause our ack time to loop every 17.47625 minutes,
+    //  but will limit the size of our ack!
+    const unsigned long ackMilliSeconds = currTime & 0xFFFFF;
+    strAck = String(ackMilliSeconds, 36);
     const String data = "DHT{"+
       String(SENSOR_ID)+
       ","+String(humidity   , 1)+
       ","+String(temperature, 1)+
       ","+String(voltage    , 3)+
       ","+strAck+"}";
-    Serial.print("("+String(currTime)+")");
+    Serial.print("("+String(ackMilliSeconds)+")");
     Serial.println(data);
     bluetooth.print(data);
     ioTime = currTime;
@@ -158,7 +165,7 @@ void loop()
         // wait for the debug print message to be displayed in the serial output
         delay(500);
         // JeeLib low-power sleep!
-        Sleepy::loseSomeTime(15000);
+        Sleepy::loseSomeTime(30000);
         // wait some time for the device to fully wake up again
         delay(500);
       }
